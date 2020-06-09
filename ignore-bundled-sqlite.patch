@@ -1,0 +1,25 @@
+diff -ur phantomjs-1.9.7-old/src/phantomjs.pro phantomjs-1.9.7/src/phantomjs.pro
+--- phantomjs-1.9.7-old/src/phantomjs.pro	2014-01-24 23:23:53.000000000 -0500
++++ phantomjs-1.9.7/src/phantomjs.pro	2015-07-31 15:11:45.916957463 -0400
+@@ -76,6 +76,7 @@
+ }
+ 
+ linux* {
++    LIBS += -lsqlite3
+     SOURCES += breakpad/src/client/linux/crash_generation/crash_generation_client.cc \
+       breakpad/src/client/linux/handler/exception_handler.cc \
+       breakpad/src/client/linux/log/log.cc \
+diff -ur phantomjs-1.9.7-old/src/qt/src/3rdparty/webkit/Source/WebKit/qt/QtWebKit.pro phantomjs-1.9.7/src/qt/src/3rdparty/webkit/Source/WebKit/qt/QtWebKit.pro
+--- phantomjs-1.9.7-old/src/qt/src/3rdparty/webkit/Source/WebKit/qt/QtWebKit.pro	2014-01-24 23:23:53.000000000 -0500
++++ phantomjs-1.9.7/src/qt/src/3rdparty/webkit/Source/WebKit/qt/QtWebKit.pro	2015-07-31 14:34:50.133137027 -0400
+@@ -27,10 +27,6 @@
+ for(item, SOURCES): {
+     path = $$split(item, '/')
+ 
+-    contains(path, sqlite3.c) {
+-        WEB_CORE_SOURCES += $$item
+-    }
+-
+     !contains(path, sqlite3.c) {
+         WEB_CORE_SOURCES += ../../WebCore/$$item
+     }

@@ -1,0 +1,145 @@
+The dependency 'breakpad' fails to compile. The easiest way I've found is to
+patch it like this:
+
+--- phantomjs-1.9.7/src/breakpad/src/client/linux/android_ucontext.h
++++ phantomjs-1.9.7/src/breakpad/src/client/linux/android_ucontext.h
+@@ -64,9 +64,9 @@
+ };
+ typedef uint32_t __sigset_t;
+ typedef struct sigcontext mcontext_t;
+-typedef struct ucontext {
++typedef ucontext_t {
+   uint32_t uc_flags;
+-  struct ucontext* uc_link;
++  ucontext_t* uc_link;
+   stack_t uc_stack;
+   mcontext_t uc_mcontext;
+   __sigset_t uc_sigmask;
+--- phantomjs-1.9.7/src/breakpad/src/client/linux/handler/exception_handler.cc
++++ phantomjs-1.9.7/src/breakpad/src/client/linux/handler/exception_handler.cc
+@@ -104,7 +104,7 @@
+ #endif
+ 
+ // A wrapper for the tgkill syscall: send a signal to a specific thread.
+-static int tgkill(pid_t tgid, pid_t tid, int sig) {
++int tgkill(pid_t tgid, pid_t tid, int sig) {
+   return syscall(__NR_tgkill, tgid, tid, sig);
+   return 0;
+ }
+@@ -342,10 +342,10 @@
+   }
+   CrashContext context;
+   memcpy(&context.siginfo, info, sizeof(siginfo_t));
+-  memcpy(&context.context, uc, sizeof(struct ucontext));
++  memcpy(&context.context, uc, sizeof(ucontext_t));
+ #if !defined(__ARM_EABI__)
+   // FP state is not part of user ABI on ARM Linux.
+-  struct ucontext *uc_ptr = (struct ucontext*)uc;
++  ucontext_t *uc_ptr = (ucontext_t*)uc;
+   if (uc_ptr->uc_mcontext.fpregs) {
+     memcpy(&context.float_state,
+            uc_ptr->uc_mcontext.fpregs,
+--- phantomjs-1.9.7/src/breakpad/src/client/linux/handler/exception_handler.h
++++ phantomjs-1.9.7/src/breakpad/src/client/linux/handler/exception_handler.h
+@@ -172,7 +172,7 @@
+   struct CrashContext {
+     siginfo_t siginfo;
+     pid_t tid;  // the crashing thread.
+-    struct ucontext context;
++    ucontext_t context;
+ #if !defined(__ARM_EABI__)
+     // #ifdef this out because FP state is not part of user ABI for Linux ARM.
+     struct _libc_fpstate float_state;
+--- phantomjs-1.9.7/src/breakpad/src/client/linux/minidump_writer/minidump_writer.cc
++++ phantomjs-1.9.7/src/breakpad/src/client/linux/minidump_writer/minidump_writer.cc
+@@ -263,7 +263,7 @@
+   memcpy(&out->flt_save.xmm_registers, &info.fpregs.xmm_space, 16 * 16);
+ }
+ 
+-static void CPUFillFromUContext(MDRawContextAMD64 *out, const ucontext *uc,
++static void CPUFillFromUContext(MDRawContextAMD64 *out, const ucontext_t *uc,
+                                 const struct _libc_fpstate* fpregs) {
+   const greg_t* regs = uc->uc_mcontext.gregs;
+ 
+@@ -1300,7 +1300,7 @@
+   }
+ 
+   const char* const filename_;  // output filename
+-  const struct ucontext* const ucontext_;  // also from the signal handler
++  const ucontext_t* const ucontext_;  // also from the signal handler
+   const struct _libc_fpstate* const float_state_;  // ditto
+   LinuxDumper* dumper_;
+   MinidumpFileWriter minidump_writer_;
+--- phantomjs-1.9.7/src/breakpad/src/third_party/glog/configure
++++ phantomjs-1.9.7/src/breakpad/src/third_party/glog/configure
+@@ -16311,8 +16311,8 @@
+ 
+ done
+        # ucontext on OS X 10.6 (at least)
+-   { $as_echo "$as_me:${as_lineno-$LINENO}: checking how to access the program counter from a struct ucontext" >&5
+-$as_echo_n "checking how to access the program counter from a struct ucontext... " >&6; }
++   { $as_echo "$as_me:${as_lineno-$LINENO}: checking how to access the program counter from a ucontext_t" >&5
++$as_echo_n "checking how to access the program counter from a ucontext_t... " >&6; }
+    pc_fields="           uc_mcontext.gregs[REG_PC]"  # Solaris x86 (32 + 64 bit)
+    pc_fields="$pc_fields uc_mcontext.gregs[REG_EIP]" # Linux (i386)
+    pc_fields="$pc_fields uc_mcontext.gregs[REG_RIP]" # Linux (x86_64)
+--- phantomjs-1.9.7/src/breakpad/src/third_party/glog/m4/pc_from_ucontext.m4
++++ phantomjs-1.9.7/src/breakpad/src/third_party/glog/m4/pc_from_ucontext.m4
+@@ -12,7 +12,7 @@
+ AC_DEFUN([AC_PC_FROM_UCONTEXT],
+   [AC_CHECK_HEADERS(ucontext.h)
+    AC_CHECK_HEADERS(sys/ucontext.h)       # ucontext on OS X 10.6 (at least)
+-   AC_MSG_CHECKING([how to access the program counter from a struct ucontext])
++   AC_MSG_CHECKING([how to access the program counter from a ucontext_t])
+    pc_fields="           uc_mcontext.gregs[[REG_PC]]"  # Solaris x86 (32 + 64 bit)
+    pc_fields="$pc_fields uc_mcontext.gregs[[REG_EIP]]" # Linux (i386)
+    pc_fields="$pc_fields uc_mcontext.gregs[[REG_RIP]]" # Linux (x86_64)
+@@ -38,7 +38,7 @@
+                          #include <sys/ucontext.h>],
+                         [ucontext_t u; return u.$pc_field == 0;],
+                         AC_DEFINE_UNQUOTED(PC_FROM_UCONTEXT, $pc_field,
+-                                           How to access the PC from a struct ucontext)
++                                           How to access the PC from a ucontext_t)
+                         AC_MSG_RESULT([$pc_field])
+                         pc_field_found=true)
+        else
+@@ -46,7 +46,7 @@
+                          #include <ucontext.h>],
+                         [ucontext_t u; return u.$pc_field == 0;],
+                         AC_DEFINE_UNQUOTED(PC_FROM_UCONTEXT, $pc_field,
+-                                           How to access the PC from a struct ucontext)
++                                           How to access the PC from a ucontext_t)
+                         AC_MSG_RESULT([$pc_field])
+                         pc_field_found=true)
+        fi
+@@ -60,7 +60,7 @@
+          AC_TRY_COMPILE([#include <signal.h>],
+                         [ucontext_t u; return u.$pc_field == 0;],
+                         AC_DEFINE_UNQUOTED(PC_FROM_UCONTEXT, $pc_field,
+-                                           How to access the PC from a struct ucontext)
++                                           How to access the PC from a ucontext_t)
+                         AC_MSG_RESULT([$pc_field])
+                         pc_field_found=true)
+        fi
+--- phantomjs-1.9.7/src/breakpad/src/third_party/glog/src/config.h.in
++++ phantomjs-1.9.7/src/breakpad/src/third_party/glog/src/config.h.in
+@@ -136,7 +136,7 @@
+ /* Define to the version of this package. */
+ #undef PACKAGE_VERSION
+ 
+-/* How to access the PC from a struct ucontext */
++/* How to access the PC from a ucontext_t */
+ #undef PC_FROM_UCONTEXT
+ 
+ /* Define to necessary symbol if this constant uses a non-standard name on
+--- phantomjs-1.9.7/src/breakpad/src/third_party/glog/src/windows/config.h
++++ phantomjs-1.9.7/src/breakpad/src/third_party/glog/src/windows/config.h
+@@ -99,7 +99,7 @@
+ /* Define to the version of this package. */
+ #undef PACKAGE_VERSION
+ 
+-/* How to access the PC from a struct ucontext */
++/* How to access the PC from a ucontext_t */
+ #undef PC_FROM_UCONTEXT
+ 
+ /* Define to necessary symbol if this constant uses a non-standard name on
