@@ -5,10 +5,17 @@ Summary:   A headless WebKit browser with a full JavaScript API.
 Name:      phantomjs
 Version:   1.9.7
 License:   BSD
-Release:   2%{?dist}
+Release:   3%{?dist}
 Source:    https://bitbucket.org/ariya/phantomjs/downloads/phantomjs-1.9.7-linux-x86_64.tar.bz2
 
-Requires:  fontconfig freetype libfreetype.so.6 libfontconfig.so.1 libstdc++.so.6
+Requires:  fontconfig
+Requires:  freetype
+Requires:  libfreetype.so.6
+Requires:  libfontconfig.so.1
+Requires:  libstdc++.so.6
+%if 0%{?el8}
+Requires:  compat-openssl10
+%endif
 
 %description
 PhantomJS is a headless WebKit with JavaScript API. It has fast and native
@@ -48,6 +55,9 @@ cp README.md %{buildroot}%{_prefix}/share/phantomjs/
 %{_prefix}/share/phantomjs/README.md
 
 %changelog
+* Tue Jun 30 2020 Adrien Vergé <adrienverge@gmail.com> 1.9.7-3
+- Require OpenSSL 1.0 on CentOS 8, otherwise crash
+
 * Fri Jun 12 2020 Adrien Vergé <adrienverge@gmail.com> 1.9.7-2
 - Fix incompatibility with OpenSSL 1.1
 
